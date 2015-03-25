@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "mpc.h"
+#include "evaluation.c"
 
 /* If we are compiling on Windows compile these functions */
 #ifdef _WIN32
@@ -27,26 +28,25 @@ void add_history(char* unused) {}
 #include <editline/history.h>
 #endif
 
-
-static char PROMPT[] = "croclisp> ";
+static char PROMPT[] = "assertilisp> ";
 
 int main(int argc, char** argv) {
 
   mpc_parser_t* Number = mpc_new("number");
   mpc_parser_t* Operator = mpc_new("operator");
   mpc_parser_t* Expr = mpc_new("expr");
-  mpc_parser_t* Croclisp = mpc_new("croclisp");
+  mpc_parser_t* Assertilisp = mpc_new("assertilisp");
 
   mpca_lang(MPCA_LANG_DEFAULT,
     "\
       number: /-?[0-9]+/ ; \
-      operator: '+' | '-' | '*' | '/' ; \
+      operator: '+' | '-' | '*' | '/' | '%' ; \
       expr: <number> | '(' <operator> <expr>+ ')' ; \
-      croclisp: /^/ <operator> <expr>+ /$/ ; \
+      assertilisp: /^/ <operator> <expr>+ /$/ ; \
     ",
-    Number, Operator, Expr, Croclisp);
+    Number, Operator, Expr, Assertilisp);
 
-  puts("Croclisp version 0.01");
+  puts("assertilisp version 0.01");
   puts("^C to quit\n");
 
   while (1) {
@@ -57,8 +57,9 @@ int main(int argc, char** argv) {
 
 
     mpc_result_t r;
-    if (mpc_parse("<stdin>", input, Croclisp, &r)) {
-      mpc_ast_print(r.output);
+    if (mpc_parse("<stdin>", input, Assertilisp, &r)) {
+      long result = eval(r.output);
+      printf("%li\n", result);
       mpc_ast_delete(r.output);
     } else {
       mpc_err_print(r.error);
@@ -69,6 +70,6 @@ int main(int argc, char** argv) {
 
     free(input);
   }
-  mpc_cleanup(4, Number, Operator, Expr, Croclisp);
+  mpc_cleanup(4, Number, Operator, Expr, Assertilisp);
   return 0;
 }
