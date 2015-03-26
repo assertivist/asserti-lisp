@@ -1,6 +1,6 @@
 
-
-parsing: 
-	cc -std=c99 -Wall parsing.c mpc.c -ledit -lm -o parsing
+all:
+assertilisp: 
+	cc -std=c99 -Wall prompt.c mpc.c -ledit -lm -o assertilisp
 clean:
-	rm parsing
+	rm assertilisp
