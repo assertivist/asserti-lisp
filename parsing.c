@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "mpc.h"
-#include "evaluation.c"
+#include "error_handling.c"
 
 /* If we are compiling on Windows compile these functions */
 #ifdef _WIN32
@@ -33,18 +33,20 @@ static char PROMPT[] = "assertilisp> ";
 int main(int argc, char** argv) {
 
   mpc_parser_t* Number = mpc_new("number");
-  mpc_parser_t* Operator = mpc_new("operator");
+  mpc_parser_t* Symbol = mpc_new("symbol");
+  mpc_parser_t* Sexpr = mpc_new("sexpr");
   mpc_parser_t* Expr = mpc_new("expr");
   mpc_parser_t* Assertilisp = mpc_new("assertilisp");
 
   mpca_lang(MPCA_LANG_DEFAULT,
     "\
-      number: /-?[0-9]+/ ; \
-      operator: '+' | '-' | '*' | '/' | '%' ; \
-      expr: <number> | '(' <operator> <expr>+ ')' ; \
-      assertilisp: /^/ <operator> <expr>+ /$/ ; \
+      number: /-?[0-9\\.]+/ ; \
+      symbol: '+' | '-' | '*' | '/' | '%' | '^' | \"min\" | \"max\" ; \
+      sexpr: '(' <expr>* ')' ; \
+      expr: <number> | <symbol> | <sexpr> ; \
+      assertilisp: /^/ <expr>* /$/ ; \
     ",
-    Number, Operator, Expr, Assertilisp);
+    Number, Symbol, Sexpr, Expr, Assertilisp);
 
   puts("assertilisp version 0.01");
   puts("^C to quit\n");
@@ -58,18 +60,17 @@ int main(int argc, char** argv) {
 
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Assertilisp, &r)) {
-      long result = eval(r.output);
-      printf("%li\n", result);
+      lval* x = lval_read(r.output);
+      lval_println(x);
+      lval_del(x);
       mpc_ast_delete(r.output);
     } else {
       mpc_err_print(r.error);
       mpc_err_delete(r.error);
     }
 
-
-
     free(input);
   }
-  mpc_cleanup(4, Number, Operator, Expr, Assertilisp);
+  mpc_cleanup(5, Number, Symbol, Sexpr, Expr, Assertilisp);
   return 0;
 }
