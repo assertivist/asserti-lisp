@@ -1,6 +1,6 @@
 
 all:
-assertilisp: 
-	cc -std=c99 -Wall prompt.c mpc.c -ledit -lm -o assertilisp
+al: 
+	cc -std=c99 -Wall prompt.c mpc.c -ledit -lm -o al
 clean:
-	rm assertilisp
+	rm al 
