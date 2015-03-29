@@ -1,15 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "mpc.h"
-#include "evaluation.c"
-
-/* If we are compiling on Windows compile these functions */
+#include "lval.h"
+#include "lenv.h"
+#include "builtin.h"
+// add fake readline functions on windows
 #ifdef _WIN32
 #include <string.h>
 
 static char buffer[2048];
 
-/* Fake readline function */
+
 char* readline(char* prompt) {
   fputs(prompt, stdout);
   fgets(buffer, 2048, stdin);
@@ -19,10 +20,9 @@ char* readline(char* prompt) {
   return cpy;
 }
 
-/* Fake add_history function */
 void add_history(char* unused) {}
 
-/* Otherwise include the editline headers */
+// otherwise include readline
 #else
 #include <editline/readline.h>
 #include <editline/history.h>
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
   mpca_lang(MPCA_LANG_DEFAULT,
     "\
       number: /-?[0-9\\.]+/ ; \
-      symbol: \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" | \"cons\" | \"len\" | \"init\" | '+' | '-' | '*' | '/' ; \
+      symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ; \
       sexpr: '(' <expr>* ')' ; \
       qexpr: '{' <expr>* '}' ; \
       expr: <number> | <symbol> | <sexpr> | <qexpr> ; \
@@ -53,18 +53,22 @@ int main(int argc, char** argv) {
   puts("assertilisp version 0.01");
   puts("^C to quit\n");
 
+  lenv* e = lenv_new();
+  lenv_add_builtins(e);
+
   while (1) {
 
-    /* Now in either case readline will be correctly defined */
     char* input = readline(PROMPT);
     add_history(input);
 
 
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Assertilisp, &r)) {
-      lval* x = lval_eval(lval_read(r.output));
+
+      lval* x = lval_eval(e, lval_read(r.output));
       lval_println(x);
       lval_del(x);
+
       mpc_ast_delete(r.output);
     } else {
       mpc_err_print(r.error);
