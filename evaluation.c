@@ -171,6 +171,7 @@ lval* lval_eval_sexpr(lval* v) {
   if (v->count == 1) { return lval_take(v, 0); }
 
   lval* f  = lval_pop(v, 0);
+
   if (f->type != LVAL_SYM) {
     lval_del(f);
     lval_del(v);
@@ -190,8 +191,7 @@ lval* lval_eval(lval* v) {
 lval* lval_pop(lval* v, int i){
   lval* x = v->cell[i];
 
-  memmove(&v->cell[i], &v->cell[i+1],
-    sizeof(lval*) * v->count-i-1);
+  memmove(&v->cell[i], &v->cell[i+1], sizeof(lval*) * v->count-i-1);
 
   v->count--;
 
@@ -199,13 +199,18 @@ lval* lval_pop(lval* v, int i){
   return x;
 }
 
+lval* lval_init(lval*v){
+	free(v->cell[v->count-1]);
+	v->count--;
+	v->cell = realloc(v->cell, sizeof(lval*) * v->count);
+	return v;
+}
+
 lval* lval_take(lval* v, int i){
   lval* x = lval_pop(v, i);
   lval_del(v);
   return x;
 }
-
-
 
 lval* builtin_op(lval* a, char* op) {
   for (int i = 0; i < a->count; i++) {
@@ -245,7 +250,7 @@ lval* builtin_op(lval* a, char* op) {
 lval* builtin_head(lval* a) {
   LASSERTLEN(a, 1, "Head takes 1 argument");
   LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Head only operates on Qexprs");
-  LASSERTNONEMPTY(a, "Head passed empty Qexpr");
+  LASSERTNONEMPTY(a->cell[0], "Head passed empty Qexpr");
 
   lval* v = lval_take(a, 0);
 
@@ -259,7 +264,7 @@ lval* builtin_head(lval* a) {
 lval* builtin_tail(lval* a) {
   LASSERTLEN(a, 1, "tail takes 1 argument");
   LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "tail only operates on Qexprs");
-  LASSERTNONEMPTY(a, "tail passed empty Qexpr");
+  LASSERTNONEMPTY(a->cell[0], "tail passed empty Qexpr");
 
   lval* v = lval_take(a, 0);
   lval_del(lval_pop(v, 0));
@@ -303,28 +308,38 @@ lval* builtin_join(lval* a) {
 }
 
 lval* builtin_cons(lval* a) {
-  LASSERTLEN(a, 2, "Can't cons more than two objects");
+  char err[] = "Must cons a value and a Qexpr";
+  LASSERTLEN(a, 2, err);
+  //LASSERT(a, a->cell[0]->type == LVAL_, err);
+  LASSERT(a, a->cell[1]->type == LVAL_QEXPR, err);
+  
   lval* x = lval_qexpr();
-  while(a->count) {
-    x = lval_add(x, lval_pop(a, 0));
+  if(a->cell[0]->type == LVAL_QEXPR){
+  	x = lval_join(x, lval_pop(a, 0));
   }
+  else{ 
+  	x = lval_add(x, lval_pop(a, 0));
+  }
+  x = lval_join(x, lval_pop(a, 0));
   lval_del(a);
   return x;
 }
 
 lval* builtin_len(lval* a) {
-  return lval_num((double)a->count);
+  LASSERTLEN(a, 1, "len takes only one argument");
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "len only counts Qexprs");
+  lval* x = lval_num((double)a->cell[0]->count);
+  lval_del(a);
+  return x;
 }
 
 lval* builtin_init(lval* a) {
-  LASSERT(a, a->type == LVAL_QEXPR, "init only operates on Qexprs");
-  LASSERTLEN(a, 2, "init called on Qexpr shorter than two");
-  lval* x = lval_pop(a, 0);
-  while(a->count > 1) {
-    x = lval_join(x, lval_pop(a, 0));
-  }
-  lval_del(a);
-  return x;
+  LASSERTLEN(a, 1, "init only takes one argument");
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "init only operates on Qexprs");
+  LASSERTNONEMPTY(a, "init called on empty Qexpr");
+
+  lval* v = lval_take(a, 0);
+  return lval_init(v);
 }
 
 lval* builtin(lval* a, char* func) {
