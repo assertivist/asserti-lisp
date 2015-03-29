@@ -43,7 +43,7 @@ struct lenv {
 enum errors { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM };
 
 lval* lval_num(double x);
-lval* lval_err(char* m);
+lval* lval_err(char* fmt, ...);
 lval* lval_sym(char* s);
 lval* lval_fun(lbuiltin func);
 lval* lval_sexpr(void);
@@ -69,14 +69,23 @@ lval* builtin_op(lenv* e, lval* a, char* op);
 lval* lenv_get(lenv* e, lval* k);
 lval* lval_init(lval* v);
 lval* lval_eval_sexpr(lenv* e, lval* v);
+char* ltype_name(int t);
 
-#define LASSERT(args, cond, err) \
-  if (!(cond)) { lval_del(args); return lval_err(err); }
+#define LASSERT(args, cond, fmt, ...) \
+  if (!(cond)) { \
+  	lval* err = lval_err(fmt, ##__VA_ARGS__); \
+  	lval_del(args); \
+  	return err; \
+  }
 
-#define LASSERTLEN(arg, len, err) \
-  if(!(arg->count == len)) { lval_del(arg); return lval_err(err); }
+#define LASSERTLEN(arg, len, fmt, ...) \
+  LASSERT(arg, arg->count == len, fmt, ##__VA_ARGS__);
 
-#define LASSERTNONEMPTY(arg, err) \
-  if(!(arg->count > 0)) { lval_del(arg); return lval_err(err); }
+#define LASSERTNONEMPTY(arg, fmt, ...) \
+  LASSERT(arg, arg->count > 0, fmt, ##__VA_ARGS__);
+
+#define LASSERTCELLTYPE(arg, cell_i, cktype, fmt) \
+  LASSERT(arg, arg->cell[cell_i]->type == cktype, fmt, \
+  	ltype_name(arg->cell[cell_i]->type));
 
 #endif

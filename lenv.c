@@ -1,10 +1,6 @@
 #include "lenv.h"
 #include "builtin.h"
 
-
-static int DYN_ERR_LEN = 80;
-
-
 lenv* lenv_new(void) {
   lenv* e = malloc(sizeof(lenv));
   e->count = 0;
@@ -29,9 +25,7 @@ lval* lenv_get(lenv* e, lval* k) {
       return lval_copy(e->vals[i]);
     }
   }
-  char err[DYN_ERR_LEN];
-  snprintf(err, DYN_ERR_LEN, "Undefined symbol: %s", k->sym);
-  return lval_err(err);
+  return lval_err("Undefined symbol: %s", k->sym);
 }
 
 void lenv_put(lenv* e, lval* k, lval* v){

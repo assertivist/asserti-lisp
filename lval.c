@@ -7,11 +7,21 @@ lval* lval_num(double x) {
   return v;
 }
 
-lval* lval_err(char* m) {
+lval* lval_err(char* fmt, ...) {
   lval* v = malloc(sizeof(lval));
   v->type = LVAL_ERR;
-  v->err = malloc(strlen(m) + 1);
-  strcpy(v->err, m);
+
+  va_list va;
+  va_start(va, fmt);
+
+  v->err = malloc(512);
+
+  vsnprintf(v->err, 511, fmt, va);
+
+  v->err = realloc(v->err, strlen(v->err) + 1);
+  
+  va_end(va);
+
   return v;
 }
 
@@ -235,4 +245,22 @@ lval* lval_take(lval* v, int i){
   lval* x = lval_pop(v, i);
   lval_del(v);
   return x;
+}
+
+char* ltype_name(int t) {
+  switch(t) {
+    case LVAL_FUN: 
+      return "Function";
+    case LVAL_NUM:
+      return "Number";
+    case LVAL_ERR:
+      return "Error";
+    case LVAL_SYM:
+      return "Symbol";
+    case LVAL_SEXPR:
+      return "S-Expression";
+    case LVAL_QEXPR:
+      return "Q-Expression";
+    default: return "Unknown";
+  }
 }
