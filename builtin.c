@@ -142,12 +142,18 @@ lval* builtin_sub(lenv* e, lval* a) {
   return builtin_op(e, a, "-");
 }
 
-lval* builtin_def(lenv* e, lval* a) {
-  LASSERTCELLTYPE(a, 0, LVAL_QEXPR, "def only receives vairable names as Qexpr; recieved %s");
+lval* builtin_var(lenv* e, lval* a, char* func) {
+  LASSERTCELLTYPE(a, 0, LVAL_QEXPR, 
+    "def only receives vairable names as Qexpr; recieved %s");
   lval* syms = a->cell[0];
 
   for (int i = 0; i < syms->count; i++) {
     LASSERTCELLTYPE(syms, i, LVAL_SYM, "attempted assignment to %s");
+    if (is_builtin(syms->cell[i]->sym)) {
+      lval* err = lval_err("Cannot redefine %s", syms->cell[i]->sym);
+      lval_del(a);
+      return err;
+    }
   }
 
   LASSERT(a, syms->count == a->count - 1, 
@@ -155,9 +161,52 @@ lval* builtin_def(lenv* e, lval* a) {
     syms->count, a->count - 1);
 
   for (int i = 0; i < syms->count; i++) {
-    lenv_put(e, syms->cell[i], a->cell[i+1]);
+    if (strcmp(func, "def") == 0) {
+      lenv_def(e, syms->cell[i], a->cell[i+1]);
+    }
+    if (strcmp(func, "=") == 0) {
+      lenv_put(e, syms->cell[i], a->cell[i+1]);
+    }
   }
   lval_del(a);
   return lval_sexpr();
 }
 
+lval* builtin_dir(lenv* e, lval* a) {
+  lval* x = lval_qexpr();
+  for (int i = 0; i < e->count; i++) {
+    x = lval_add(x, lval_sym(e->syms[i]));
+  }
+  return x;
+}
+
+lval* builtin_exit(lenv* e, lval* a) {
+  lval_del(a);
+  return lval_exit();
+}
+
+lval* builtin_lambda(lenv* e, lval* a) {
+  LASSERTLEN(a, 2, "lambda only takes 2 arguments; received %d", a->count);
+  LASSERTCELLTYPE(a, 0, LVAL_QEXPR, 
+    "lambda only takes Qexprs; arg 1 was %s");
+  LASSERTCELLTYPE(a, 1, LVAL_QEXPR,
+    "labmda only takes Qexprs; arg 2 was %s");
+
+  for (int i = 0; i < a->cell[0]->count; i++) {
+    LASSERT(a, (a->cell[0]->cell[i]->type ==LVAL_SYM), 
+      "can't define non-symbol %s", ltype_name(a->cell[0]->cell[i]->type));
+  }
+
+  lval* formals = lval_pop(a, 0);
+  lval* body = lval_pop(a, 0);
+  lval_del(a);
+  return lval_lambda(formals, body);
+}
+
+lval* builtin_def(lenv* e, lval* a) {
+  return builtin_var(e, a, "def");
+}
+
+lval* builtin_put(lenv* e, lval* a) {
+  return builtin_var(e, a, "=");
+}

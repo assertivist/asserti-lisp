@@ -15,5 +15,9 @@ lval* builtin_div(lenv* e, lval* a);
 lval* builtin_add(lenv* e, lval* a);
 lval* builtin_sub(lenv* e, lval* a);
 lval* builtin_def(lenv* e, lval* a);
+lval* builtin_dir(lenv* e, lval* a);
+lval* builtin_exit(lenv* e, lval* a);
+lval* builtin_lambda(lenv* e, lval* a);
+lval* builtin_put(lenv* e, lval* a);
 
 #endif

@@ -1,4 +1,12 @@
 #include "lval.h"
+#include "builtin.h"
+#include "lenv.h"
+
+lval* lval_exit(void) {
+  lval* v = malloc(sizeof(lval));
+  v->type = LVAL_EXIT;
+  return v;
+}
 
 lval* lval_num(double x) {
   lval* v = malloc(sizeof(lval));
@@ -36,7 +44,7 @@ lval* lval_sym(char *s) {
 lval* lval_fun(lbuiltin func){
   lval* v = malloc(sizeof(lval));
   v->type = LVAL_FUN;
-  v->fun = func;
+  v->builtin = func;
   return v;
 }
 
@@ -53,6 +61,19 @@ lval* lval_qexpr(void) {
   v->type = LVAL_QEXPR;
   v->count = 0;
   v->cell = NULL;
+  return v;
+}
+
+lval* lval_lambda(lval* formals, lval* body) {
+  lval* v = malloc(sizeof(lval));
+  v->type = LVAL_FUN;
+
+  v->builtin = NULL;
+
+  v->env = lenv_new();
+
+  v->formals = formals;
+  v->body = body;
   return v;
 }
 
@@ -85,7 +106,15 @@ lval* lval_copy(lval* v) {
 
   switch(v->type) {
     case LVAL_FUN:
-      x->fun = v->fun;
+      if (v->builtin) {
+        x->builtin = v->builtin;
+      }
+      else {
+        x->builtin = NULL;
+        x->env = lenv_copy(v->env);
+        x->formals = lval_copy(v->formals);
+        x->body = lval_copy(v->body);
+      }
       break;
     case LVAL_NUM:
       x->num = v->num;
@@ -130,6 +159,40 @@ lval* lval_read(mpc_ast_t* t) {
   return x;
 }
 
+lval* lval_call(lenv* e, lval* f, lval* a) {
+  if (f->builtin) { return f->builtin(e, a); }
+
+  int given = a->count;
+  int total = f->formals->count;
+
+  while (a->count) {
+    if (f->formals->count == 0) {
+      lval_del(a);
+      return lval_err(
+        "function passed too many arguments; takes %i received %i",
+        given, total);
+    }
+
+    lval* sym = lval_pop(f->formals, 0);
+
+    lval* val = lval_pop(a, 0);
+
+    lenv_put(f->env, sym, val);
+    lval_del(sym);
+    lval_del(val);
+  }
+  lval_del(a);
+
+  if (f->formals->count == 0) {
+    f->env->par = e;
+    return builtin_eval(
+      f->env, lval_add(lval_sexpr(), lval_copy(f->body)));
+  }
+  else {
+    return lval_copy(f);
+  }
+}
+
 void lval_del(lval* v) {
   switch (v->type) {
     case LVAL_NUM:
@@ -141,6 +204,11 @@ void lval_del(lval* v) {
       free(v->sym);
       break;
     case LVAL_FUN:
+      if (!v->builtin) {
+        lenv_del(v->env);
+        lval_del(v->formals);
+        lval_del(v->body);
+      }
       break;
     case LVAL_QEXPR:
     case LVAL_SEXPR:
@@ -153,10 +221,10 @@ void lval_del(lval* v) {
   free(v);
 }
 
-void lval_expr_print(lval* v, char open, char close) {
+void lval_expr_print(lenv* e, lval* v, char open, char close) {
   putchar(open);
   for (int i = 0; i < v->count; i++) {
-    lval_print(v->cell[i]);
+    lval_print(e, v->cell[i]);
     if(i != (v->count-1)) {
       putchar(' ');
     }
@@ -164,7 +232,7 @@ void lval_expr_print(lval* v, char open, char close) {
   putchar(close);
 }
 
-void lval_print(lval* v) {
+void lval_print(lenv* e, lval* v) {
   switch (v->type) {
     case LVAL_NUM:
       printf("%g", v->num);
@@ -176,18 +244,28 @@ void lval_print(lval* v) {
       printf("%s", v->sym);
       break;
     case LVAL_FUN:
-      printf("<func>");
+      if (v->builtin) {
+        printf("<func %s>", 
+          lenv_get_fun_name_for_pointer(e, v->builtin));
+      }
+      else {
+        printf("(\\ ");
+        lval_print(e, v->formals);
+        putchar(' ');
+        lval_print(e, v->body);
+        putchar(')');
+      }
       break;
     case LVAL_SEXPR:
-      lval_expr_print(v, '(', ')');
+      lval_expr_print(e, v, '(', ')');
       break;
     case LVAL_QEXPR:
-      lval_expr_print(v, '{', '}');
+      lval_expr_print(e, v, '{', '}');
       break;
   }
 }
 
-void lval_println(lval* v) { lval_print(v); putchar('\n'); }
+void lval_println(lenv* e, lval* v) { lval_print(e, v); putchar('\n'); }
 
 lval* lval_eval_sexpr(lenv* e, lval* v) {
   for (int i = 0; i < v->count; i++) {
@@ -204,12 +282,15 @@ lval* lval_eval_sexpr(lenv* e, lval* v) {
   lval* f  = lval_pop(v, 0);
 
   if (f->type != LVAL_FUN) {
+    lval* err = lval_err(
+      "S-exp must start with function; received %s", 
+      ltype_name(f->type));
     lval_del(f);
     lval_del(v);
-    return lval_err("S-exp must start with a function.");
+    return err;
   }
 
-  lval* result = f->fun(e, v);
+  lval* result = lval_call(e, f, v);
   lval_del(f);
   return result;
 }

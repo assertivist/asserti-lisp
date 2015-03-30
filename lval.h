@@ -16,7 +16,8 @@ enum types {
   LVAL_SYM, 
   LVAL_FUN, 
   LVAL_SEXPR, 
-  LVAL_QEXPR 
+  LVAL_QEXPR,
+  LVAL_EXIT
 };
 
 typedef lval*(*lbuiltin)(lenv*, lval*);
@@ -27,7 +28,11 @@ struct lval {
   double num;
   char* err;
   char* sym;
-  lbuiltin fun;
+
+  lbuiltin builtin;
+  lenv* env;
+  lval* formals;
+  lval* body;
 
   int count;
   lval** cell;
@@ -35,6 +40,7 @@ struct lval {
 
 
 struct lenv {
+  lenv* par;
   int count;
   char** syms;
   lval** vals;
@@ -48,18 +54,21 @@ lval* lval_sym(char* s);
 lval* lval_fun(lbuiltin func);
 lval* lval_sexpr(void);
 lval* lval_qexpr(void);
+lval* lval_lambda(lval* formals, lval* body);
+lval* lval_exit(void);
 
 lval* lval_read_num(mpc_ast_t* t);
 lval* lval_add(lval* v, lval* x);
 lval* lval_join(lval*v, lval* x);
 lval* lval_copy(lval* v);
 lval* lval_read(mpc_ast_t* t);
+lval* lval_call(lenv* e, lval* f, lval* a);
 
 void lval_del(lval* v);
-void lval_print(lval* v);
-void lval_expr_print(lval* v, char open, char close);
-void lval_print(lval* v);
-void lval_println(lval* v);
+void lval_print(lenv* e, lval* v);
+void lval_expr_print(lenv* e, lval* v, char open, char close);
+void lval_print(lenv* e, lval* v);
+void lval_println(lenv* e, lval* v);
 
 
 lval* lval_pop(lval* v, int i);

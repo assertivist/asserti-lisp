@@ -56,7 +56,8 @@ int main(int argc, char** argv) {
   lenv* e = lenv_new();
   lenv_add_builtins(e);
 
-  while (1) {
+  int running = 1;
+  while (1 && running) {
 
     char* input = readline(PROMPT);
     add_history(input);
@@ -66,7 +67,10 @@ int main(int argc, char** argv) {
     if (mpc_parse("<stdin>", input, Assertilisp, &r)) {
 
       lval* x = lval_eval(e, lval_read(r.output));
-      lval_println(x);
+      if(x->type == LVAL_EXIT) {
+      	running = 0;
+      }
+      lval_println(e, x);
       lval_del(x);
 
       mpc_ast_delete(r.output);
@@ -76,6 +80,9 @@ int main(int argc, char** argv) {
     }
 
     free(input);
+    if (running == 0){
+    	lenv_del(e);
+    }
   }
   mpc_cleanup(6, Number, Symbol, Sexpr, Qexpr, Expr, Assertilisp);
   return 0;
