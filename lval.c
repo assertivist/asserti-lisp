@@ -27,7 +27,7 @@ lval* lval_err(char* fmt, ...) {
   vsnprintf(v->err, 511, fmt, va);
 
   v->err = realloc(v->err, strlen(v->err) + 1);
-  
+
   va_end(va);
 
   return v;
@@ -175,6 +175,22 @@ lval* lval_call(lenv* e, lval* f, lval* a) {
 
     lval* sym = lval_pop(f->formals, 0);
 
+    // special case for &
+    if (strcmp(sym->sym, "&") == 0) {
+      if (f->formals->count != 1) {
+        lval_del(a);
+        return lval_err(
+          "invalid function; symbol & not followed by single symbol"
+          " for mapping list of args");
+      }
+      // next formal bound to remaining args
+      lval* nsym = lval_pop(f->formals, 0);
+      lenv_put(f->env, nsym, builtin_list(e, a));
+      lval_del(sym);
+      lval_del(nsym);
+      break;
+    }
+
     lval* val = lval_pop(a, 0);
 
     lenv_put(f->env, sym, val);
@@ -182,6 +198,24 @@ lval* lval_call(lenv* e, lval* f, lval* a) {
     lval_del(val);
   }
   lval_del(a);
+
+  // if & remains in formal list, bind to empty list
+  if(f->formals->count > 0 && strcmp(f->formals->cell[0]->sym, "&") == 0) {
+    if (f->formals->count != 2) {
+      return lval_err("invalid function; symbol & not followed by single"
+        "symbol for mapping list of args");
+    }
+    // pop and delete &
+    lval_del(lval_pop(f->formals, 0));
+
+    //bind sym to empty list
+    lval* sym = lval_pop(f->formals, 0);
+    lval* val = lval_qexpr();
+
+    lval_put(f->env, sym, val);
+    lval_del(sym);
+    lval_del(val);
+  }
 
   if (f->formals->count == 0) {
     f->env->par = e;
@@ -245,7 +279,7 @@ void lval_print(lenv* e, lval* v) {
       break;
     case LVAL_FUN:
       if (v->builtin) {
-        printf("<func %s>", 
+        printf("<func %s>",
           lenv_get_fun_name_for_pointer(e, v->builtin));
       }
       else {
@@ -283,7 +317,7 @@ lval* lval_eval_sexpr(lenv* e, lval* v) {
 
   if (f->type != LVAL_FUN) {
     lval* err = lval_err(
-      "S-exp must start with function; received %s", 
+      "S-exp must start with function; received %s",
       ltype_name(f->type));
     lval_del(f);
     lval_del(v);
@@ -330,7 +364,7 @@ lval* lval_take(lval* v, int i){
 
 char* ltype_name(int t) {
   switch(t) {
-    case LVAL_FUN: 
+    case LVAL_FUN:
       return "Function";
     case LVAL_NUM:
       return "Number";
