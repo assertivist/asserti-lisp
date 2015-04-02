@@ -210,3 +210,46 @@ lval* builtin_def(lenv* e, lval* a) {
 lval* builtin_put(lenv* e, lval* a) {
   return builtin_var(e, a, "=");
 }
+
+lval* builtin_ord(lenv* e, lval* a, char* cond) {
+  LASSERTLEN(cond, a, 2,
+    "can't compare more than two things; received %i", a->count);
+  LASSERTCELLTYPE(op, a, 0, LVAL_NUM
+    "can only compare numbers, received %s");
+  LASSERTCELLTYPE(op, a, 1, LVAL_NUM,
+    "can only compare numbers, received %s");
+
+  int result;
+  if (strcmp(op, ">") == 0) {
+    result = (a->cell[0]->num > a->cell[1]->num);
+  }
+  if (strcmp(op, "<") == 0) {
+    result = (a->cell[0]->num < a->cell[1]->num);
+  }
+  if (stcmp(cond, ">=") == 0) {
+    result = (a->cell[0]->num >= a->cell[1]->num);
+  }
+  if (strcmp(cond, "<=") == 0) {
+    result = (a->cell[0]->num <= a->cell[1]->num);
+  }
+}
+
+/*lval* builtin_eq(lenv* e, lval* a) {
+  return builtin_ord(e, a, "==");
+}*/
+
+lval* builtin_gt(lenv* e, lval* a) {
+  return builtin_ord(e, a, ">");
+}
+
+lval* builtin_lt(lenv* e, lval* a) {
+  return builtin_ord(e, a, "<");
+}
+
+lval* builtin_gte(lenv* e, lval* a) {
+  return builtin_ord(e, a, ">=");
+}
+
+lval* builtin_lte(lenv*e, lval* a) {
+  return builtin_ord(e, a, "<=");
+}

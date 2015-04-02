@@ -19,5 +19,10 @@ lval* builtin_dir(lenv* e, lval* a);
 lval* builtin_exit(lenv* e, lval* a);
 lval* builtin_lambda(lenv* e, lval* a);
 lval* builtin_put(lenv* e, lval* a);
+lval* builtin_eq(lenv* e, lval* a);
+lval* builtin_gt(lenv* e, lval* a);
+lval* builtin_lt(lenv* e, lval* a);
+lval* builtin_gte(lenv* e, lval* a);
+lval* builtin_lte(lenv* e, lval* a);
 
 #endif
